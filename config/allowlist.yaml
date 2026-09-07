@@ -1,0 +1,11 @@
+
+# List of authorised targets allowed to scan
+# Supports : Single IPs, CIDR ranges and hostnames
+
+allowed_targets:
+  - 127.0.0.1
+  - 192.168.1.0/24
+
+# Safety - Reject any CIDR ranges broader than this
+
+max_range_size: 24 # /24 = 256 addresses
