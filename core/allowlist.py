@@ -11,7 +11,7 @@ No other part of the code should bypass this.
 import ipaddress
 from pathlib import path
 import socket
-import ipadress
+import ipaddress
 import yaml
 
 DEFAULT_CONFIG_PATH = path("/config/allowlist.yaml")
