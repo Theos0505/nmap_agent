@@ -65,7 +65,7 @@ def run_scan(command: list, timeout: int = DEFAULT_TIMEOUT_SECONDS) -> dict:
     except FileNotFoundError:
         raise Exception(
             "nmap is not installed or not found in the path"
-            "Install it from https://nmap.org/download.html and try again"
+            " Install it from https://nmap.org/download.html and try again"
         )
     except subprocess.TimeoutExpired:
         raise ExecutionError(

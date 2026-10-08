@@ -9,34 +9,38 @@ No other part of the code should bypass this.
 
 """
 import ipaddress
-from pathlib import path
+from pathlib import Path
 import socket
 import ipaddress
 import yaml
 
-DEFAULT_CONFIG_PATH = path("/config/allowlist.yaml")
+DEFAULT_CONFIG_PATH = Path("config/allowlist.yaml")
+
 
 class AllowlistError(Exception):
     """ Raised for allowlist config file related problems (Eg: File missing, bad entries, etc.)"""
     pass
 
-class TargetNotaAllowedError(Exception):
+
+class TargetNotAllowedError(Exception):
     """
      Raised when a requested scan target is not covered by the allowlist.
     Carries a human-readable explanation so the calling interface (CLI,
     chat, API) can show the user exactly why the request was blocked.
     """
+
     def __init__(self, target: str, reason: str):
         self.target = target
         self.reason = reason
-        super.__init__(f"Target '{target}' is not allowed: {reason}")
+        super().__init__(f"Target '{target}' is not allowed: {reason}")
+
 
 class Allowlist:
     def __init__(self, config_path: Path = DEFAULT_CONFIG_PATH):
-        self.config_path = config_path
+        self.config_path = Path(config_path)
         self.entries = []  # list of ipaddress network/address objects
-        self.hostnames = [] # raw hostname strings (can't pre resolve reliably)
-        self.max_range_size = 24 # defaut safety cap overriden by config
+        self.hostnames = []  # raw hostname strings (can't pre resolve reliably)
+        self.max_range_size = 24  # default safety cap overriden by config
         self._load()
 
     def _load(self):
@@ -56,14 +60,18 @@ class Allowlist:
                 f"Allowlist is empty. Add at least one authorized taget to"
                 f"'{self.config_path}' before scanning"
             )
+
+        for raw in raw_targets:
+            self._add_entry(raw)
+
     def _add_entry(self, raw: str):
         raw = raw.strip()
         try:
-             # Try parsing as a network( covers bith a CIDR range as well as an IP
-             # since ipaddress treat a single IP as /32 or /128
-            network = ipaddress.ip_network(raw, strict=False) # A plain IP like 192.168.1.10 becomes a /32 network
-                                                              # (just itself), and 192.168.1.0/24 becomes a 256-address
-                                                              # range
+            # Try parsing as a network( covers bith a CIDR range as well as an IP
+            # since ipaddress treat a single IP as /32 or /128
+            network = ipaddress.ip_network(raw, strict=False)  # A plain IP like 192.168.1.10 becomes a /32 network
+            # (just itself), and 192.168.1.0/24 becomes a 256-address
+            # range
         except ValueError:
             # Not a valid IP/CIDR — treat it as a hostname instead
             self.hostnames.append(raw)
@@ -87,15 +95,23 @@ class Allowlist:
         # Cadidate is an IP or CIDR range
         try:
             candidate = ipaddress.ip_network(target, strict=False)
-            return any(
-                """
-                subnet_of checks if the target is within approved range instead of a string match
-                """
-                canditate.subnet_of(approved) or candidate == aproved
+            # subnet_of() checks whether a candidate falls within an approved
+            # range, rather than requiring an exact match
+            is_covered = any(
+                self._safe_subnet_of(candidate, approved) or candidate == approved
                 for approved in self.entries
             )
+            if is_covered:
+                return True
+            # It parsed as an IP/CIDR but isn't covered -- reject below
+            raise TargetNotAllowedError(
+                target,
+                f"IP/range is not within any approved allowlist entry"
+                f"Approved ranges: {', '.join(str(e) for e in self.entries) or '(none)'}. "
+                f"Add it to '{self.config_path}' if you are authorized to scan it"
+            )
         except ValueError:
-            pass # Not an IP or CIDR so fall through to hostname
+            pass  # Not an IP or CIDR so fall through to hostname
 
         # Target is a hostname, check literal target first
         if target in self.hostnames:
@@ -108,7 +124,8 @@ class Allowlist:
         try:
             resolved_ip = socket.gethostbyname(target)
             resolved = ipaddress.ip_network(resolved_ip, strict=False)
-            return any(resolved.subnet_of(approved) for approved in self.entries)
+            if any(self._safe_subnet_of(resolved, approved) for approved in self.entries):
+                return True
         except (socket.gaierror, ValueError):
             pass
 
@@ -122,16 +139,26 @@ class Allowlist:
             f"Add it to '{self.config_path}' if you are authorized to scan it."
         )
 
+    @staticmethod
+    def _safe_subnet_of(candidate, approved):
+        """
+        Wraps subnet_of() to avoid crashing on IPv4-vs-IPv6 comparisons,
+        which raises TypeError rather than just returning False
+        """
+        try:
+            return candidate.subnet_of(approved)
+        except TypeError:
+            return False
+
     # This is just an optional method just for the testing purpose. This is an OPTIONAL method
     def is_allowed(self, target: str) -> bool:
         """Convenience boolean check, used internally or for quick UI checks."""
-        try
+        try:
             self.validate(target)
-            return true
-        except TargetNotaAllowedError:
+            return True
+        except TargetNotAllowedError:
             return False
 
-
-    def list_entries(self) -> list[str]:
+    def list_entries(self) -> list:
         """Return a human-readable list of everything currently allowed"""
         return [str(e) for e in self.entries] + list(self.hostnames)

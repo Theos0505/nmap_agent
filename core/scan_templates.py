@@ -36,32 +36,32 @@ SCAN_TEMPLATES = {
     "ping_scan": {
         "description": "Check which hosts are online (no port scan)",
         "flags": ["-sn"],
-        "requires_privilege": False,
+        "requires_privileges": False,
     },
     "quick_scan": {
         "description": "Fast scan for most common 100 ports",
         "flags": ["-sT", "-F"],
-        "requires_privilege": False,
+        "requires_privileges": False,
     },
     "connect_scan": {
         "description": "Standard TCP connect scan",
         "flags": ["-sT"],
-        "requires_privilege": False,
+        "requires_privileges": False,
     },
     "syn_scan": {
         "description": "TCP SYN Scan (stealthier, faster)",
         "flags": ["-sS"],
-        "requires_privilege": True
+        "requires_privileges": True
     },
     "version_scan": {
         "description": "Detect service/version running on open port",
         "flags": ["-sV"],
-        "requires_privilege": False
+        "requires_privileges": False
     },
     "full_port_scan": {
         "description": "Scan all 65535 TCP ports.",
         "flags": ["-sT", "-p-"],
-        "requires_privilege": False,
+        "requires_privileges": False,
     }
 }
 
